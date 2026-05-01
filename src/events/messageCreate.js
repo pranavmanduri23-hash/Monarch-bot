@@ -1,4 +1,58 @@
+import { getInviteStats, getInvitedBy, getInviteLeaderboard } from '../services/inviteService.js';
 
+// In execute():
+await handleInvites(message, client); // ← add after handleAfk
+
+// ── New function ──
+async function handleInvites(message, client) {
+  const prefix = client.config.bot.prefix || '!';
+  if (!message.content.toLowerCase().startsWith(`${prefix}invites`)) return;
+
+  const args = message.content.slice(prefix.length).trim().split(/ +/);
+  args.shift(); // remove 'invites'
+  const sub = args[0]?.toLowerCase();
+
+  // !invites leaderboard
+  if (sub === 'leaderboard' || sub === 'lb') {
+    const lb = await getInviteLeaderboard(client, message.guild.id);
+
+    if (lb.length === 0) return message.reply('📭 No invite data yet!');
+
+    const description = lb
+      .map((e, i) => `**${i + 1}.** <@${e.userId}> — **${e.total}** invite(s)`)
+      .join('\n');
+
+    const embed = new EmbedBuilder()
+      .setTitle(`📨 Invite Leaderboard — ${message.guild.name}`)
+      .setDescription(description)
+      .setColor(0x5865F2)
+      .setTimestamp();
+
+    return message.channel.send({ embeds: [embed] });
+  }
+
+  // !invites or !invites @user
+  const target = message.mentions.users.first() || message.author;
+  const stats = await getInviteStats(client, message.guild.id, target.id);
+  const invitedById = await getInvitedBy(client, message.guild.id, target.id);
+
+  const inviteeList = stats.invitees.length > 0
+    ? stats.invitees.slice(0, 10).map(id => `<@${id}>`).join(', ')
+    : 'None';
+
+  const embed = new EmbedBuilder()
+    .setTitle(`📨 Invite Stats — ${target.username}`)
+    .addFields(
+      { name: '✅ Total Invites', value: `**${stats.total}**`, inline: true },
+      { name: '📥 Invited By', value: invitedById ? `<@${invitedById}>` : 'Unknown', inline: true },
+      { name: '👥 People Invited', value: inviteeList }
+    )
+    .setColor(0x5865F2)
+    .setThumbnail(target.displayAvatarURL())
+    .setTimestamp();
+
+  return message.channel.send({ embeds: [embed] });
+}
 
 
 
